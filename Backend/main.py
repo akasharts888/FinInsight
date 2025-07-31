@@ -1,18 +1,99 @@
 from fastapi import FastAPI, HTTPException
-from MyAgents.DataFetcher import DataFetcherAgent
+from fastapi.responses import JSONResponse
 from MyAgents.Analyst import AnalysisAgent
 from MyAgents.TechnicalAnalyst import TechnicalAnalysisAgent
 from pydantic import BaseModel, Field
-from typing import Optional, Dict, Any,List
+from typing import Optional, Dict, Any,List, Union
 from langgraph.graph import StateGraph
 from pydantic import BaseModel
 import uvicorn
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
+from MyAgents.DataFetcher import DataFetcherAgent
 from MyAgents.predictionAgent import PredictionAgent
+from MyAgents.FilingParserAgent import FilingFetcherAgent, FilingParserAgent, FinancialAnalysisAgentSEC
+from MyAgents.QueryAgent import queryAgent
+
 
 app = FastAPI()
+
+class DeepAnalysisState(BaseModel):
+    ticker: str
+    status: str = "ok"
+    error: Optional[str] = None
+    fetched_data: Optional[Dict[str, str]] = None
+    parsed_data: Optional[Dict[str, Dict[str, float]]] = None
+    financial_ratios: Optional[Dict[str, Dict[str, float]]] = None
+
+sec_fetcher = FilingFetcherAgent()
+sec_parser = FilingParserAgent()
+sec_analyzer = FinancialAnalysisAgentSEC()
+
+def run_sec_fetcher(state: DeepAnalysisState) -> DeepAnalysisState:
+    print(f"[{state.ticker}] Running SEC Fetcher Agent...")
+    name = state.ticker
+    try:
+        data = sec_fetcher.fetcher_agent(name)
+        if data.get("status") == "Failed":
+             return state.copy(update={"status": "Failed", "error": data.get("error")})
+        return state.copy(update={"fetched_data": data})
+    except Exception as e:
+        print("error we get while fetching data : ",e)
+        return state.copy(update={"status": "Failed", "error": f"SEC Fetcher failed: {e}"})
+
+def run_sec_parser(state: DeepAnalysisState) -> DeepAnalysisState:
+    if state.status == "Failed": return state
+    print(f"[{state.ticker}] Running SEC Parser Agent...")
+    try:
+        parsed_data = sec_parser.parse_filings(state.fetched_data)
+        return state.copy(update={"parsed_data": parsed_data})
+    except Exception as e:
+        print(f"Error during SEC parsing for {state.ticker}: {e}")
+        return state.copy(update={"status": "Failed", "error": f"SEC Parser failed: {e}"})
+
+def run_sec_analyzer(state: DeepAnalysisState) -> DeepAnalysisState:
+    if state.status == "Failed" or not state.parsed_data: return state
+    print(f"[{state.ticker}] Running SEC Analyzer Agent...")
+    try:
+        ratios = sec_analyzer.analyze_filings(state.parsed_data)
+        return state.copy(update={"financial_ratios": ratios})
+    except Exception as e:
+        print(f"Error during SEC analysis for {state.ticker}: {e}")
+        return state.copy(update={"status": "Failed", "error": f"SEC Analyzer failed: {e}"})
+
+
+deep_analysis_graph = StateGraph(DeepAnalysisState)
+deep_analysis_graph.add_node("sec_fetcher", run_sec_fetcher)
+deep_analysis_graph.add_node("sec_parser", run_sec_parser)
+deep_analysis_graph.add_node("sec_analyzer", run_sec_analyzer)
+deep_analysis_graph.set_entry_point("sec_fetcher")
+deep_analysis_graph.add_edge("sec_fetcher", "sec_parser")
+deep_analysis_graph.add_edge("sec_parser", "sec_analyzer")
+deep_analysis_graph.set_finish_point("sec_analyzer")
+compiled_deep_graph = deep_analysis_graph.compile()
+
+class DeepAnalysisRequest(BaseModel):
+    symbol: str
+
+@app.post("/run-deep-analysis")
+async def run_deep_analysis(request: DeepAnalysisRequest):
+    # print("data get : ",request)
+    try:
+        initial_state = DeepAnalysisState(ticker=request.symbol)
+        final_state = compiled_deep_graph.invoke(initial_state)
+
+        if final_state.status == "Failed":
+            raise HTTPException(status_code=500, detail=final_state.error)
+
+        return {
+            "ticker": final_state.ticker,
+            "source": "SEC 10-K Filing",
+            "extracted_data": final_state.parsed_data,
+            "financial_ratios": final_state.financial_ratios
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 class StockAnalysisState(BaseModel):
     company_name: str
@@ -35,22 +116,27 @@ def run_financial_analysis(state: StockAnalysisState) -> StockAnalysisState:
     return state.copy(update={"financial_analysis": result})
 
 def run_technical_analysis(state: StockAnalysisState) -> StockAnalysisState:
-    TechnicalAnalysisAgent(state.raw_data["historical_prices"])
-    
-    df = state.raw_data["historical_prices"].tail(10)
-    df.index = df.index.strftime("%Y-%m-%d")  # convert datetime index to string for JSON
-    reshaped = df.to_dict()  # current format: {col: {date: value}}
+    try:
+        TechnicalAnalysisAgent(state.raw_data["historical_prices"])
+        
+        df = state.raw_data["historical_prices"]
+        df = df.replace([float('inf'), float('-inf')], float('nan')).fillna(value=0)
+        df.index = df.index.strftime("%Y-%m-%d")  # convert datetime index to string for JSON
+        reshaped = df.to_dict()  # current format: {col: {date: value}}
 
-    # Reformat: transpose it to a list of {name: date, ...}
-    dates = list(next(iter(reshaped.values())).keys())
-    result = []
-    for date in dates:
-        row = {"name": date}
-        for indicator, values in reshaped.items():
-            row[indicator] = values[date]
-        result.append(row)
-    return state.copy(update={"technical_analysis": result})
-
+        # Reformat: transpose it to a list of {name: date, ...}
+        dates = list(next(iter(reshaped.values())).keys())
+        result = []
+        for date in dates:
+            row = {"name": date}
+            for indicator, values in reshaped.items():
+                row[indicator] = values[date]
+            result.append(row)
+        
+        return state.copy(update={"technical_analysis": result})
+    except Exception as e:
+            print("[run_technical_analysis] An error occurred:", e)
+            return state.copy(update={"technical_analysis": []})
 graph = StateGraph(StockAnalysisState)
 
 graph.add_node("fetch_data", fetch_data)
@@ -70,8 +156,7 @@ class AnalysisRequest(BaseModel):
     company_name:str
     symbol:str
 
-import numpy as np
-import pandas as pd
+
 
 def convert_to_json_safe(obj):
     if isinstance(obj, dict):
@@ -142,55 +227,26 @@ async def run_stock_analysis(request: AnalysisRequest):
             "analyst_recommendations": final_state["raw_data"].get("analyst_recommendations", []),
             "news": final_state["raw_data"].get("news", [])
         })
-
-        # return {
-        # "financial_analysis": {
-        #     "financial_ratios": {
-        #         "EPS": 5.23,
-        #         "P/E Ratio": 28.3,
-        #         "ROE": 0.19,
-        #         "Current Ratio": 1.8,
-        #         "Debt-to-Equity": 0.6
-        #     },
-        #     "summary": {
-        #         "Profitability": "Strong",
-        #         "Liquidity": "Healthy",
-        #         "Solvency": "Stable"
-        #     }
-        # },
-        # "technical_indicators": {
-        #     "Day 1": {
-        #         "Close": 192.15,
-        #         "SMA_20": 190.3,
-        #         "EMA_20": 191.1,
-        #         "RSI": 58.2
-        #     },
-        #     "Day 2": {
-        #         "Close": 194.52,
-        #         "SMA_20": 191.1,
-        #         "EMA_20": 192.0,
-        #         "RSI": 60.4
-        #     },
-        #     "Day 3": {
-        #         "Close": 196.34,
-        #         "SMA_20": 192.2,
-        #         "EMA_20": 193.1,
-        #         "RSI": 63.7
-        #     },
-        #     "Day 4": {
-        #         "Close": 195.80,
-        #         "SMA_20": 193.1,
-        #         "EMA_20": 194.0,
-        #         "RSI": 61.5
-        #     },
-        #     "Day 5": {
-        #         "Close": 197.21,
-        #         "SMA_20": 194.2,
-        #         "EMA_20": 195.2,
-        #         "RSI": 65.9
-        #     }
-        # }
     except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+class ExplanationRequest(BaseModel):
+    question: str
+    context_data: Union[List[Dict[str, Any]], Dict[str, Any]]  # The JSON data from the frontend
+    context_type: str # e.g., "technical_analysis", "financial_ratios"
+
+@app.post('/ask-query')
+async def ask_query(request:ExplanationRequest):
+    print("Get request for query!!")
+    query = request.question
+    context = request.context_data
+    context_type = request.context_type
+
+    try:
+        response = queryAgent(query, context,context_type)
+        explanation_text = response.content
+        return JSONResponse(content={"response": explanation_text}, status_code=200)
+    except Exception as e:
+        print("Error we get is : ",e)
         raise HTTPException(status_code=500, detail=str(e))
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

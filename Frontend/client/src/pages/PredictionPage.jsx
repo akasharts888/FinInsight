@@ -1,10 +1,11 @@
-import React, { useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useLocation } from "react-router-dom";
 import {
     LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer,
   } from "recharts";
 import { motion } from "framer-motion";
 import { useNavigate } from 'react-router-dom';
+import { createChart, CandlestickSeries ,HistogramSeries, LineSeries} from 'lightweight-charts';
 
 const PredictionPage = () => {
     const location = useLocation();
@@ -16,6 +17,8 @@ const PredictionPage = () => {
     const [error, setError] = useState("");
     const navigate = useNavigate();
     
+    const chartContainerRef = useRef(null);
+
     const handleFetchPrediction = async () => {
         setLoading(true);
         setError("");
@@ -41,6 +44,50 @@ const PredictionPage = () => {
             setLoading(false);
         }
     }
+
+    useEffect(() => {
+        if (!chartContainerRef.current || predictions.length === 0) {
+            return;
+        }
+        const chartData = predictions.map(p => ({
+            time: p.date,
+            value: p.predicted_close,
+        }));
+
+        const chart = createChart(chartContainerRef.current, {
+            width: chartContainerRef.current.clientWidth,
+            height: 300,
+            layout: {
+                background: { color: '#ffffff' },
+                textColor: '#333',
+            },
+            grid: {
+                vertLines: { color: '#f0f0f0' },
+                horzLines: { color: '#f0f0f0' },
+            },
+        });
+
+        const lineSeries = chart.addSeries(LineSeries,{
+            color: '#4f46e5',
+            lineWidth: 3,
+            title: 'Forecast',
+        });
+
+        lineSeries.setData(chartData);
+        chart.timeScale().fitContent();
+
+        const resizeObserver = new ResizeObserver(entries => {
+            const { width } = entries[0].contentRect;
+            chart.applyOptions({ width });
+        });
+        resizeObserver.observe(chartContainerRef.current);
+
+        return () => {
+            resizeObserver.disconnect();
+            chart.remove();
+        };
+
+    },[predictions]);
     return (
         <div className="min-h-screen bg-gradient-to-br from-sky-100 to-indigo-100 p-6 relative">
             <button
@@ -92,7 +139,16 @@ const PredictionPage = () => {
                         className="mt-10"
                     >
                         <h2 className="text-2xl font-semibold mb-4 text-gray-800">Price Forecast Chart</h2>
-                        <ResponsiveContainer width="100%" height={300}>
+                        <div className="relative w-full" style={{ height: '300px' }}>
+                            <span className="absolute top-1/2 right-[-30px] -translate-y-1/2 -rotate-90 text-sm text-gray-600 font-medium">
+                                Predicted Price (USD)
+                            </span>
+                            <div ref={chartContainerRef} className="w-full h-full" />
+                            <span className="absolute bottom-[-25px] left-1/2 -translate-x-1/2 text-sm text-gray-600 font-medium">
+                                Date
+                            </span>
+                        </div>
+                        {/* <ResponsiveContainer width="100%" height={300}>
                             <LineChart data={predictions}>
                                 <CartesianGrid strokeDasharray="3 3" />
                                 <XAxis dataKey="date" />
@@ -107,7 +163,8 @@ const PredictionPage = () => {
                                     activeDot={{ r: 6 }} 
                                 />
                             </LineChart>
-                        </ResponsiveContainer>
+                        </ResponsiveContainer> */}
+                        
                         <h2 className="text-xl font-semibold mt-10 mb-4 text-gray-800">Forecasted Data</h2>
                         <div className="overflow-hidden rounded-2xl border border-gray-200 shadow-lg mt-8">
                             <motion.table 

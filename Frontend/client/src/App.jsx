@@ -22,7 +22,7 @@ function App() {
           isAuthenticated={isAuthenticated}
           setIsAuthenticated={setIsAuthenticated}
         />
-        <ThemeToggle darkMode={darkMode} setDarkMode={setDarkMode} />
+        {/* <ThemeToggle darkMode={darkMode} setDarkMode={setDarkMode} /> */}
         </div>
         <div className="mt-16 flex-1 overflow-y-auto">
           <Routes>

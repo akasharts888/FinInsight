@@ -7,18 +7,18 @@ const PYTHON_BACKEND_URL = process.env.PYTHON_BACKEND_URL || "http://localhost:8
 const dummyData = {       
   financial_analysis: {
     financial_ratios: {
-      EPS: 24.6,
-      'P/E Ratio': 28.57,       
-      ROE: 0.34,
-      'Current Ratio': 2.98,    
-      'Debt-to-Equity': 0.51    
+      EPS: 18.25,
+      'P/E Ratio': 32.4,
+      ROE: 0.29,
+      'Current Ratio': 3.1,
+      'Debt-to-Equity': 0.45
     },
     summary: {
-      Profitability: 'Strong',  
-      Liquidity: 'Healthy',     
-      Solvency: 'Stable'        
+      Profitability: 'Strong',
+      Liquidity: 'Stable',
+      Solvency: 'Robust'
     }
-  },
+  },  
   technical_indicators: [       
     {
       name: '2025-07-02',       
@@ -435,16 +435,106 @@ const dummyData = {
     strongSell: { '0': 2, '1': 2, '2': 2 }
   },
   news: [
-    { id: '68e36e50-c36b-4594-9064-ddda13080104', content: [Object] },
-    { id: 'bb0a5ace-1e9a-3c20-8afe-5884edc92db8', content: [Object] },
-    { id: '4a009602-648c-4f30-80c6-fef1aebad053', content: [Object] },
-    { id: '3b3d5f1f-af28-3341-8764-c02a6d29ce2e', content: [Object] },
-    { id: '53c1a6fb-98e9-39a3-a053-41629b4677d7', content: [Object] },
-    { id: 'bdc7536f-48b9-36a5-8c2b-ccdb13412b0f', content: [Object] },
-    { id: '71d4763e-da8d-3b46-b590-5635a1eddf49', content: [Object] },
-    { id: 'b9ef8645-9d7c-3c6b-a6e1-7ee9393e659f', content: [Object] },
-    { id: 'e19c8055-5d51-3d64-b04e-076d50caadae', content: [Object] },
-    { id: '42d666c7-eb53-365e-a72d-7c043b0055a6', content: [Object] }
+    {
+      id: '68e36e50-c36b-4594-9064-ddda13080104',
+      content: {
+        title: 'OpenAI Releases New GPT-5 Model With Multimodal Capabilities',
+        clickThroughUrl: { url: 'https://example.com/news1' },
+        thumbnail: { originalUrl: 'https://via.placeholder.com/150' },
+        provider: { displayName: 'TechCrunch' },
+        pubDate: new Date().toISOString(),
+      },
+    },
+    {
+      id: 'bb0a5ace-1e9a-3c20-8afe-5884edc92db8',
+      content: {
+        title: 'India Sets New Record in Space Launch With Gaganyaan Test',
+        clickThroughUrl: { url: 'https://example.com/news2' },
+        thumbnail: { originalUrl: 'https://via.placeholder.com/150' },
+        provider: { displayName: 'NDTV' },
+        pubDate: new Date().toISOString(),
+      },
+    },
+    {
+      id: '4a009602-648c-4f30-80c6-fef1aebad053',
+      content: {
+        title: 'Stock Markets Surge As AI Startups Show Record Growth',
+        clickThroughUrl: { url: 'https://example.com/news3' },
+        thumbnail: { originalUrl: 'https://via.placeholder.com/150' },
+        provider: { displayName: 'Bloomberg' },
+        pubDate: new Date().toISOString(),
+      },
+    },
+    {
+      id: '3b3d5f1f-af28-3341-8764-c02a6d29ce2e',
+      content: {
+        title: 'ChatGPT Plugin Store Hits 1 Million Downloads in First Month',
+        clickThroughUrl: { url: 'https://example.com/news4' },
+        thumbnail: { originalUrl: 'https://via.placeholder.com/150' },
+        provider: { displayName: 'Wired' },
+        pubDate: new Date().toISOString(),
+      },
+    },
+    {
+      id: '53c1a6fb-98e9-39a3-a053-41629b4677d7',
+      content: {
+        title: 'New Breakthrough in Quantum Computing Announced by Google',
+        clickThroughUrl: { url: 'https://example.com/news5' },
+        thumbnail: { originalUrl: 'https://via.placeholder.com/150' },
+        provider: { displayName: 'Google AI Blog' },
+        pubDate: new Date().toISOString(),
+      },
+    },
+    {
+      id: 'bdc7536f-48b9-36a5-8c2b-ccdb13412b0f',
+      content: {
+        title: 'Meta Introduces LLaMA 4: Smaller, Smarter, and Safer',
+        clickThroughUrl: { url: 'https://example.com/news6' },
+        thumbnail: { originalUrl: 'https://via.placeholder.com/150' },
+        provider: { displayName: 'The Verge' },
+        pubDate: new Date().toISOString(),
+      },
+    },
+    {
+      id: '71d4763e-da8d-3b46-b590-5635a1eddf49',
+      content: {
+        title: 'Elon Musk Announces xAI Agent To Rival ChatGPT',
+        clickThroughUrl: { url: 'https://example.com/news7' },
+        thumbnail: { originalUrl: 'https://via.placeholder.com/150' },
+        provider: { displayName: 'Reuters' },
+        pubDate: new Date().toISOString(),
+      },
+    },
+    {
+      id: 'b9ef8645-9d7c-3c6b-a6e1-7ee9393e659f',
+      content: {
+        title: 'Apple’s New iPhone 17 AI Chip Promises Unprecedented Speed',
+        clickThroughUrl: { url: 'https://example.com/news8' },
+        thumbnail: { originalUrl: 'https://via.placeholder.com/150' },
+        provider: { displayName: 'MacRumors' },
+        pubDate: new Date().toISOString(),
+      },
+    },
+    {
+      id: 'e19c8055-5d51-3d64-b04e-076d50caadae',
+      content: {
+        title: 'Microsoft Copilot Rolls Out To All Office 365 Users',
+        clickThroughUrl: { url: 'https://example.com/news9' },
+        thumbnail: { originalUrl: 'https://via.placeholder.com/150' },
+        provider: { displayName: 'Microsoft Blog' },
+        pubDate: new Date().toISOString(),
+      },
+    },
+    {
+      id: '42d666c7-eb53-365e-a72d-7c043b0055a6',
+      content: {
+        title: 'Anthropic’s Claude 3.5 Surpasses GPT-4 in Reasoning Tasks',
+        clickThroughUrl: { url: 'https://example.com/news10' },
+        thumbnail: { originalUrl: 'https://via.placeholder.com/150' },
+        provider: { displayName: 'VentureBeat' },
+        pubDate: new Date().toISOString(),
+      },
+    },
   ]
 }
 // POST /companystock
